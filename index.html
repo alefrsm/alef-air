@@ -409,7 +409,7 @@ h1 span{color:var(--blue3);font-style:italic;text-shadow:0 0 26px rgba(25,132,25
           <div><strong>Insight Alef</strong><p id="insightText">Faça uma busca para gerar a análise do mês.</p></div>
         </div>
         <div class="note">
-          Conectado ao sistema Alef Air. As buscas utilizam dados reais retornados pela API AviationStack através da infraestrutura segura Supabase Edge Function.
+          Esta versão usa dados demonstrativos gerados no navegador. Para consultar tarifas reais em tempo real, o próximo passo é conectar uma API de voos (ex.: Amadeus, Duffel, Kiwi/Tequila ou outro provedor autorizado).
         </div>
       </section>
 
@@ -436,8 +436,23 @@ const $ = s => document.querySelector(s);
 let currentFlights = [];
 
 function short(v){
-  const m=(v||"").match(/\(([A-Z]{3})\)/);
-  return m ? m[1] : (v||"").trim().slice(0,3).toUpperCase();
+  if(!v) return "";
+
+  const m=(v||"").toUpperCase().match(/\\(([A-Z]{3})\\)/);
+  if(m) return m[1];
+
+  const map={
+    "FORTALEZA":"FOR",
+    "SAO PAULO":"GRU",
+    "SÃO PAULO":"GRU",
+    "BELEM":"BEL",
+    "BELÉM":"BEL",
+    "LISBOA":"LIS"
+  };
+
+  const clean=v.trim().toUpperCase();
+
+  return map[clean] || clean.slice(0,3);
 }
 
 function loading(){
@@ -513,8 +528,8 @@ async function search(){
       airline:v.companhia,
       code:v.numero,
       status:v.status,
-      departure:new Date(v.horario_saida).toLocaleString("pt-BR"),
-      arrival:new Date(v.horario_chegada).toLocaleString("pt-BR")
+      departure:v.horario_saida,
+      arrival:v.horario_chegada
     }));
 
     render();
@@ -524,7 +539,7 @@ async function search(){
     console.error(e);
 
     $("#results").innerHTML =
-      "<div class='empty'>Não foi possível consultar os voos agora. Verifique origem, destino ou tente novamente.</div>";
+      "<div class='empty'>Erro ao buscar voos.</div>";
   }
 
   if(btn){
@@ -536,7 +551,6 @@ async function search(){
 const btn = $("#searchBtn");
 if(btn) btn.addEventListener("click", search);
 
-search();
 </script>
 
 </body>
