@@ -372,9 +372,14 @@ function alefIata(value){
           <div class="input-wrap"><span class="ico">✈</span><input id="destination" list="airportList" value="São Paulo (GRU)" placeholder="Digite cidade ou aeroporto"/></div>
         </div>
         <div class="field">
-          <label>Mês da viagem</label>
-          <div class="input-wrap"><span class="ico">▦</span><input id="month" type="month"/></div>
+          <label>Ida</label>
+          <div class="input-wrap"><span class="ico">▦</span><input id="dateOut" type="date"/></div>
         </div>
+        <div class="field">
+          <label>Volta</label>
+          <div class="input-wrap"><span class="ico">▦</span><input id="dateBack" type="date"/></div>
+        </div>
+        <input id="month" type="hidden"/>
         <div class="field">
           <label>Viajantes</label>
           <div class="input-wrap"><span class="ico">◎</span><input id="travelers" type="number" min="1" max="20" value="2"/></div>
@@ -614,5 +619,31 @@ $('#sort').addEventListener('change',render);
 ['travelers','hotel','food','tours','days'].forEach(id=>$('#'+id).addEventListener('input',()=>currentFlights.length&&updateSummary()));
 search();
 </script>
+
+<script>
+const idaInput = document.getElementById("dateOut");
+const voltaInput = document.getElementById("dateBack");
+const monthInput = document.getElementById("month");
+
+if(idaInput && monthInput){
+  idaInput.addEventListener("change", ()=>{
+    monthInput.value = idaInput.value.substring(0,7);
+  });
+}
+
+if(idaInput && voltaInput){
+  idaInput.addEventListener("change", ()=>{
+    voltaInput.min = idaInput.value;
+  });
+
+  voltaInput.addEventListener("change", ()=>{
+    if(voltaInput.value < idaInput.value){
+      voltaInput.value = "";
+      alert("A data de volta precisa ser depois da ida.");
+    }
+  });
+}
+</script>
+
 </body>
 </html>
