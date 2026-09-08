@@ -429,157 +429,115 @@ h1 span{color:var(--blue3);font-style:italic;text-shadow:0 0 26px rgba(25,132,25
   </footer>
 </div>
 
+
 <script>
 const $ = s => document.querySelector(s);
-const money = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(v);
-const airlines = [
-  {name:'GOL', code:'G3', factor:.96},
-  {name:'LATAM', code:'LA', factor:1.03},
-  {name:'Azul', code:'AD', factor:1.00},
-  {name:'Voepass', code:'2Z', factor:.94},
-  {name:'Avianca', code:'AV', factor:1.08}
-];
 
 let currentFlights = [];
 
-function seedFromText(text){
-  let h=2166136261;
-  for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619)}
-  return ()=>((h=Math.imul(h^h>>>15,1|h))>>>0)/4294967296;
+function short(v){
+  const m=(v||"").match(/\(([A-Z]{3})\)/);
+  return m ? m[1] : (v||"").trim().slice(0,3).toUpperCase();
 }
-function monthDefault(){
-  const d=new Date(); d.setMonth(d.getMonth()+1);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-}
-$('#month').value = monthDefault();
 
-$('#advancedToggle').addEventListener('click',()=>{
-  $('#advanced').classList.toggle('open');
-  $('#advancedToggle').textContent = $('#advanced').classList.contains('open') ? '− Ocultar custos da viagem' : '＋ Incluir custos da viagem';
-});
-
-function generateFlights(){
-  const origin=$('#origin').value.trim()||'Origem';
-  const destination=$('#destination').value.trim()||'Destino';
-  const month=$('#month').value||monthDefault();
-  const [year,mon]=month.split('-').map(Number);
-  const daysInMonth=new Date(year,mon,0).getDate();
-  const rand=seedFromText(origin+destination+month);
-  const base=280+Math.floor(rand()*260);
-  let list=[];
-  for(let day=1;day<=daysInMonth;day++){
-    const dow=new Date(year,mon-1,day).getDay();
-    const weekend=(dow===0||dow===5||dow===6)?1.13:1;
-    const wave=1+Math.sin((day/31)*Math.PI*3)*.11;
-    airlines.forEach((a,idx)=>{
-      const noise=.83+rand()*.38;
-      const price=Math.max(189,Math.round(base*weekend*wave*a.factor*noise));
-      const direct=rand()>.28;
-      list.push({
-        day,month:mon,year,airline:a.name,code:a.code,price,direct,
-        departure:`${String(5+Math.floor(rand()*15)).padStart(2,'0')}:${rand()>.5?'10':'40'}`,
-        duration:direct?`${2+Math.floor(rand()*2)}h ${10+Math.floor(rand()*40)}m`:`${4+Math.floor(rand()*4)}h ${10+Math.floor(rand()*40)}m`
-      });
-    });
+function loading(){
+  const el = $("#results");
+  if(el){
+    el.innerHTML = `
+      <div class="loading">
+        <div class="loading-line"></div>
+        <div class="loading-line"></div>
+        <div class="loading-line"></div>
+      </div>`;
   }
-  return list;
 }
 
 function render(){
-  let list=[...currentFlights];
-  const sort=$('#sort').value;
-  if(sort==='price') list.sort((a,b)=>a.price-b.price);
-  if(sort==='date') list.sort((a,b)=>a.day-b.day||a.price-b.price);
-  if(sort==='airline') list.sort((a,b)=>a.airline.localeCompare(b.airline)||a.price-b.price);
-  list=list.slice(0,12);
-  const min=Math.min(...currentFlights.map(x=>x.price));
-  $('#results').innerHTML=list.map((f,i)=>`
-    <div class="flight ${f.price===min?'best':''} fade-up" style="animation-delay:${i*28}ms">
+  const el = $("#results");
+  if(!el) return;
+
+  el.innerHTML = currentFlights.map((f,i)=>`
+    <div class="flight fade-up">
       <div class="rank">#${i+1}</div>
       <div class="airline">
-        <div class="air-logo">${f.code}</div>
+        <div class="air-logo">${f.code || "--"}</div>
         <div class="route">
-          <strong>${f.airline} · ${f.departure}</strong>
-          <small>${f.direct?'Voo direto':'1 escala'} · ${f.duration}</small>
-          ${f.price===min?'<span class="tag green">melhor preço</span>':''}
+          <strong>${f.airline || "Companhia"}</strong>
+          <small>${f.status || "Voo encontrado"}</small>
         </div>
       </div>
       <div class="date">
-        <strong>${String(f.day).padStart(2,'0')}/${String(f.month).padStart(2,'0')}/${f.year}</strong>
-        <small>ida selecionada</small>
+        <strong>${f.departure || "--"}</strong>
+        <small>Saída</small>
       </div>
       <div class="price">
-        <strong>${money(f.price)}</strong>
-        <small>por pessoa</small>
+        <strong>Voo real</strong>
+        <small>AviationStack</small>
       </div>
-    </div>`).join('');
-  updateSummary();
-  renderCalendar();
+    </div>
+  `).join("");
+
+  const sub = $("#resultSub");
+  if(sub) sub.textContent = `${currentFlights.length} voos encontrados`;
 }
 
-function updateSummary(){
-  if(!currentFlights.length)return;
-  const best=[...currentFlights].sort((a,b)=>a.price-b.price)[0];
-  const highest=[...currentFlights].sort((a,b)=>b.price-a.price)[0];
-  const travelers=Math.max(1,+$('#travelers').value||1);
-  const days=Math.max(1,+$('#days').value||1);
-  const hotel=Math.max(0,+$('#hotel').value||0)*Math.max(1,days-1);
-  const food=Math.max(0,+$('#food').value||0)*travelers*days;
-  const tours=Math.max(0,+$('#tours').value||0)*travelers;
-  const flights=best.price*travelers;
-  const total=flights+hotel+food+tours;
-  const pp=total/travelers;
-  const saving=(highest.price-best.price)*travelers;
+async function search(){
 
-  $('#summaryRoute').textContent=`${short($('#origin').value)} → ${short($('#destination').value)} · ${travelers} viajante${travelers>1?'s':''}`;
-  $('#perPerson').textContent=money(pp);
-  $('#totalTrip').textContent=`Total da viagem: ${money(total)}`;
-  $('#bFlights').textContent=money(flights);
-  $('#bHotel').textContent=money(hotel);
-  $('#bFood').textContent=money(food);
-  $('#bTours').textContent=money(tours);
-  $('#saving').textContent=money(saving);
-  $('#insightText').textContent=`O dia ${String(best.day).padStart(2,'0')}/${String(best.month).padStart(2,'0')} aparece como a menor tarifa simulada: ${money(best.price)} por pessoa com ${best.airline}.`;
-}
-function short(v){
-  const m=(v||'').match(/\(([A-Z]{3})\)/);return m?m[1]:(v||'').split(' ')[0].slice(0,3).toUpperCase();
-}
-function renderCalendar(){
-  if(!currentFlights.length)return;
-  const bestByDay={};
-  currentFlights.forEach(f=>bestByDay[f.day]=Math.min(bestByDay[f.day]??Infinity,f.price));
-  const values=Object.values(bestByDay), min=Math.min(...values), max=Math.max(...values);
-  const [year,mon]=($('#month').value||monthDefault()).split('-').map(Number);
-  const firstDow=new Date(year,mon-1,1).getDay();
-  let html='';
-  for(let i=0;i<firstDow;i++)html+='<div></div>';
-  Object.entries(bestByDay).forEach(([day,price])=>{
-    const ratio=(price-min)/Math.max(1,max-min);
-    const cls=price===min?'bestday':ratio<.28?'hot':'';
-    html+=`<div class="day ${cls}"><strong>${day}</strong><span>${money(price)}</span></div>`;
-  });
-  $('#calendar').innerHTML=html;
-}
-function loading(){
-  $('#results').innerHTML='<div class="loading"><div class="loading-line"></div><div class="loading-line"></div><div class="loading-line"></div><div class="loading-line"></div></div>';
-}
-function search(){
   loading();
-  $('#searchBtn').disabled=true;
-  $('#searchBtn').textContent='Analisando o mês...';
-  setTimeout(()=>{
-    currentFlights=generateFlights();
-    const best=[...currentFlights].sort((a,b)=>a.price-b.price)[0];
-    $('#resultSub').textContent=`${currentFlights.length} tarifas simuladas · melhor dia ${String(best.day).padStart(2,'0')}/${String(best.month).padStart(2,'0')}`;
+
+  const btn = $("#searchBtn");
+  if(btn){
+    btn.disabled = true;
+    btn.textContent = "Buscando voos reais...";
+  }
+
+  try{
+
+    const resposta = await fetch(
+      "https://iyospzpuhikbexmocayb.supabase.co/functions/v1/buscar-voos",
+      {
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          origem: short($("#origin").value),
+          destino: short($("#destination").value)
+        })
+      }
+    );
+
+    const dados = await resposta.json();
+
+    currentFlights = (dados.voos || []).map(v=>({
+      airline:v.companhia,
+      code:v.numero,
+      status:v.status,
+      departure:v.horario_saida,
+      arrival:v.horario_chegada
+    }));
+
     render();
-    $('#searchBtn').disabled=false;
-    $('#searchBtn').textContent='Buscar melhores datas';
-  },650);
+
+  }catch(e){
+
+    console.error(e);
+
+    $("#results").innerHTML =
+      "<div class='empty'>Erro ao buscar voos.</div>";
+  }
+
+  if(btn){
+    btn.disabled = false;
+    btn.textContent = "Buscar melhores datas";
+  }
 }
-$('#searchBtn').addEventListener('click',search);
-$('#sort').addEventListener('change',render);
-['travelers','hotel','food','tours','days'].forEach(id=>$('#'+id).addEventListener('input',()=>currentFlights.length&&updateSummary()));
+
+const btn = $("#searchBtn");
+if(btn) btn.addEventListener("click", search);
+
 search();
 </script>
+
 </body>
 </html>
